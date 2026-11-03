@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-# Install this bundle into an existing native DeepSeek Harness profile.
+# Install this bundle into an existing native Harness profile.
 # The script builds the plugin locally, installs the resulting tarball through
 # the supported `dsh plugin` command, and never writes credentials to disk.
 
@@ -18,11 +18,11 @@ die() { printf '[harness-gateway01:error] %s\n' "$*" >&2; exit 1; }
 usage() {
   cat <<'EOF'
 用法：
-  HARNESS_SRC=/opt/dsh/harness PROFILE=web \
+  HARNESS_SRC=/path/to/harness PROFILE="<existing-profile>" \
     ./scripts/install-native-harness.sh
 
 必填：
-  HARNESS_SRC  DeepSeek Harness 源码目录（包含 package.json 和 apps/cli）
+  HARNESS_SRC  Harness 源码目录（包含 package.json 和 apps/cli）
 
 可选环境变量：
   PROFILE          已存在的 Harness profile，默认 web

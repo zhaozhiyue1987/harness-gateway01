@@ -1,6 +1,25 @@
 # Harness Higress AI 路由插件部署安装手册
 
-本文适用于 `dsh-higress-ai-route-plugin` 0.1.x，在本地或私有化 Harness 中安装、配置和验证 Higress AI 网关路由。
+本文适用于 `dsh-higress-ai-route-plugin` 0.1.x，在任意具备原生 Harness 源码 checkout 的目标环境中安装、配置和验证 Higress AI 网关路由。
+
+## 0. 从 GitHub 克隆并一键安装
+
+以下流程不依赖特定主机、端口或 profile 名称。请把 `PLUGIN_ROOT`、`HARNESS_SRC` 和 `PROFILE` 改为目标环境的实际值；`PROFILE` 必须已经存在。
+
+```bash
+PLUGIN_ROOT="/opt/harness-plugins"
+HARNESS_SRC="/opt/harness"
+PROFILE="<existing-profile>"
+
+mkdir -p "$PLUGIN_ROOT"
+git clone https://github.com/zhaozhiyue1987/harness-gateway01.git \
+  "$PLUGIN_ROOT/harness-gateway01"
+cd "$PLUGIN_ROOT/harness-gateway01"
+HARNESS_SRC="$HARNESS_SRC" PROFILE="$PROFILE" \
+  ./scripts/install-native-harness.sh
+```
+
+脚本会在插件仓库内执行锁定依赖安装、类型检查、构建、测试和临时打包，再通过 Harness 源码 checkout 的原生 CLI 安装到指定 profile。安装后重启该 profile 对应的 Harness Web 进程。脚本不创建 profile，也不读取或保存 Console、路由或模型密钥。
 
 ## 1. 部署架构
 
@@ -11,13 +30,13 @@ Harness 插件 Host ──登录/拉取路由──> Higress Console 管理入�
 Harness 官方 LLM Provider ──OpenAI 兼容请求──> Higress Gateway 数据入口
 ```
 
-本地三节点/HAProxy 环境使用：
+目标环境的统一入口示例：
 
 | 用途 | 地址示例 |
 | --- | --- |
-| Harness 插件登录和路由同步 | `http://127.0.0.1:8001` |
-| Harness 实际 AI 调用 | `http://127.0.0.1:9080` |
-| Harness Web | `http://127.0.0.1:3080` |
+| Harness 插件登录和路由同步 | `https://console.example.com` |
+| Harness 实际 AI 调用 | `https://gateway.example.com` |
+| Harness Web | `https://harness.example.com` |
 
 生产环境请将这两个地址替换为 Console 和 Gateway 的稳定 VIP、负载均衡地址或 DNS，不能把某一台节点地址当成长期入口。
 
@@ -33,7 +52,7 @@ Harness 官方 LLM Provider ──OpenAI 兼容请求──> Higress Gateway 数
 - 使用的 Harness profile 已包含官方 `@deepseek-ai/dsh-llm-pi-ai` Provider。
 - 网关已配置可调用路由；一期支持无认证和 `BEARER` 两种认证方式。
 
-先检查本地工具：
+先检查目标环境工具：
 
 ```sh
 node --version
@@ -48,16 +67,16 @@ dsh --version
 
 插件拉取的路由配置会包含最终数据面地址。网关公共地址应配置为 Gateway 的统一入口，只填写协议、主机和端口，不要填写路由前缀。
 
-本地示例：
+示例：
 
 ```text
-http://127.0.0.1:9080
+https://gateway.example.com
 ```
 
 如果路由前缀为 `/aaa`，插件最终会显示并写入 Provider：
 
 ```text
-http://127.0.0.1:9080/aaa/v1
+   https://gateway.example.com/aaa/v1
 ```
 
 生产示例：
@@ -70,10 +89,10 @@ https://gateway.example.com
 
 ## 4. 构建插件安装包
 
-进入插件仓库：
+进入已克隆的插件仓库：
 
 ```sh
-cd "/Users/zhao/项目开发/ctc-ctcics-harness-repository"
+cd "$PLUGIN_ROOT/harness-gateway01"
 ```
 
 安装依赖并执行检查：
@@ -105,8 +124,9 @@ tar -tzf dsh-higress-ai-route-plugin-0.1.1.tgz | sed -n '1,80p'
 将 `<profile-name>` 替换为实际使用的 Harness profile：
 
 ```sh
-dsh plugin --profile <profile-name> add \
-  "/Users/zhao/项目开发/ctc-ctcics-harness-repository/dsh-higress-ai-route-plugin-0.1.1.tgz"
+cd "$HARNESS_SRC"
+pnpm dsh plugin --profile "$PROFILE" add \
+  "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"
 ```
 
 安装后确认 profile 的 `package.json` 中包含：
@@ -130,13 +150,13 @@ dsh plugin --profile <profile-name> add \
 
 ## 6. 在 Harness 中完成配置
 
-1. 打开 `http://127.0.0.1:3080/` 或实际 Harness 地址。
+1. 打开 `https://harness.example.com/` 或目标 Harness 地址。
 2. 进入“设置 → 插件 → 内置插件”。
 3. 搜索“**Higress AI 路由**”。
 4. 填写 Console 管理地址，例如：
 
    ```text
-   http://127.0.0.1:8001
+   https://console.example.com
    ```
 
    如果 Console 部署在反向代理路径下，可以填写带路径前缀的地址，例如：
@@ -149,8 +169,8 @@ dsh plugin --profile <profile-name> add \
 6. 从路由列表中选择需要使用的路由。
 7. 根据路由认证方式完成配置：
 
-   - 无认证：插件使用固定本地兼容凭证 `higress-no-auth`。
-   - `BEARER`：输入该路由已有的 Bearer 凭证，插件只在 Harness 本地保存副本。
+   - 无认证：插件使用固定兼容凭证 `higress-no-auth`。
+   - `BEARER`：输入该路由已有的 Bearer 凭证，插件只在 Harness profile 中保存副本。
    - `HEADER`、`QUERY`：一期可显示但不可连接。
 
 8. 如果后台没有指定 Model ID，插件使用固定默认值 `higress-default-model`。
@@ -163,7 +183,7 @@ dsh plugin --profile <profile-name> add \
 ### 7.1 路由同步验证
 
 - 页面能看到路由名称、协议、模型和认证方式。
-- 选中路由后能看到最终调用地址，例如 `http://127.0.0.1:9080/aaa/v1`。
+- 选中路由后能看到最终调用地址，例如 `https://gateway.example.com/aaa/v1`。
 - 页面显示“已连接”或等价成功状态。
 
 ### 7.2 Harness 对话验证
@@ -240,7 +260,7 @@ dsh plugin --profile <profile-name> remove dsh-higress-ai-route-plugin
 curl -i -c /tmp/higress-console-test.cookies \
   -H 'Content-Type: application/json' \
   --data '{"username":"admin","password":"<password>","autoLogin":true}' \
-  'http://127.0.0.1:8001/session/login'
+  'https://console.example.com/session/login'
 ```
 
 ### 路由列表为空或路由不可连接

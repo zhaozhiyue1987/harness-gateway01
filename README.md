@@ -6,10 +6,35 @@ The plugin is intentionally implemented as a new standalone project. It does not
 
 See [DEPLOYMENT.zh.md](./DEPLOYMENT.zh.md) for the complete build, installation, configuration, verification, upgrade, and troubleshooting guide.
 
-For a native Harness source checkout, the one-command installer is
+For any native Harness source checkout, the one-command installer is
 [`scripts/install-native-harness.sh`](./scripts/install-native-harness.sh). It builds
 the locked package, installs it through the supported `dsh plugin` CLI, and never
 stores Console or gateway credentials.
+
+## Clone and install
+
+The supported installation path is to clone this repository into a directory
+you control and run the installer against an existing Harness source checkout.
+The Harness `PROFILE` must already exist; the installer does not create or
+select a running Web instance for you.
+
+```sh
+PLUGIN_ROOT="/opt/harness-plugins"
+HARNESS_SRC="/opt/harness"
+PROFILE="<existing-profile>"
+
+mkdir -p "$PLUGIN_ROOT"
+git clone https://github.com/zhaozhiyue1987/harness-gateway01.git \
+  "$PLUGIN_ROOT/harness-gateway01"
+cd "$PLUGIN_ROOT/harness-gateway01"
+HARNESS_SRC="$HARNESS_SRC" PROFILE="$PROFILE" \
+  ./scripts/install-native-harness.sh
+```
+
+The command runs the package checks, creates a temporary tarball, and invokes
+the Harness source checkout's native CLI. Restart the Harness Web process for
+the selected profile after installation. Configure the Console endpoint and
+route credentials in the plugin UI; no secret is read from this repository.
 
 ## User flow
 
@@ -34,20 +59,22 @@ and route ID, so two private gateways with the same route name do not overwrite 
 other. If the gateway changes the bound credential ID, the local credential reference
 changes as well and the UI asks for the existing key again.
 
-## Build and install locally
+## Build and install manually
 
 ```sh
-npm install
+PLUGIN_ROOT="/opt/harness-plugins"
+HARNESS_SRC="/opt/harness"
+PROFILE="<existing-profile>"
+
+cd "$PLUGIN_ROOT/harness-gateway01"
+npm ci
+npm run typecheck
+npm test
 npm run build
 npm pack
-dsh plugin --profile demo add ./dsh-higress-ai-route-plugin-0.1.1.tgz
-```
-
-The same flow can be run end to end from a clean checkout:
-
-```sh
-HARNESS_SRC=/opt/dsh/harness PROFILE=web \
-  ./scripts/install-native-harness.sh
+cd "$HARNESS_SRC"
+pnpm dsh plugin --profile "$PROFILE" add \
+  "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"
 ```
 
 The published artifact contains prebuilt JavaScript and the bundle patch, so an end user does not execute a TypeScript build during installation.
