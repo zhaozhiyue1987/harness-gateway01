@@ -18,9 +18,29 @@ you control and run the installer against an existing Harness source checkout.
 The Harness `PROFILE` must already exist; the installer does not create or
 select a running Web instance for you.
 
+### Understand the two directories first
+
+The installation uses two different directories. Do not set them to the same path:
+
+| Name | Meaning | Expected contents | Example |
+| --- | --- | --- | --- |
+| Plugin directory | The `harness-gateway01` directory cloned from this GitHub repository; run `npm` commands here | `package.json`, `scripts/`, `src/` | `/Users/your-name/harness-plugins/harness-gateway01` |
+| Harness source directory | The root of your Harness source checkout; run `pnpm dsh` here | `package.json`, `apps/cli/src/bin.ts`, `apps/` | `/Users/your-name/harness` |
+
+The directories should be siblings, not nested inside one another:
+
+```text
+/Users/your-name/
+├── harness-plugins/
+│   └── harness-gateway01/   # plugin directory: npm ci/build/pack
+└── harness/                 # Harness source directory: pnpm dsh plugin ... add
+```
+
+`PROFILE` is a profile name such as `web`, not a directory path. It must already exist in Harness.
+
 ```sh
-PLUGIN_ROOT="/opt/harness-plugins"
-HARNESS_SRC="/opt/harness"
+PLUGIN_ROOT="$HOME/harness-plugins"
+HARNESS_SRC="$HOME/harness"
 PROFILE="<existing-profile>"
 
 mkdir -p "$PLUGIN_ROOT"
@@ -61,25 +81,115 @@ changes as well and the UI asks for the existing key again.
 
 ## Build and install manually
 
-You may start this block from any shell directory. After `cd "$PLUGIN_ROOT/harness-gateway01"`, run all `npm` commands in the cloned plugin directory. After `cd "$HARNESS_SRC"`, run the `pnpm dsh` command in the Harness source checkout.
+The following is a beginner-friendly, step-by-step procedure. You may open a
+terminal in any starting directory, but do not skip the `cd` commands. The
+plugin build commands and the Harness installation command run in different
+directories.
+
+### Step 1: Set the three paths
+
+Run this from any directory. Replace the values with real paths. `PLUGIN_ROOT`
+is the parent directory for plugin checkouts; `HARNESS_SRC` is the root of the
+Harness source checkout; `PROFILE` is an existing Harness profile name.
 
 ```sh
-PLUGIN_ROOT="/opt/harness-plugins"
-HARNESS_SRC="/opt/harness"
-PROFILE="<existing-profile>"
+PLUGIN_ROOT="$HOME/harness-plugins"
+HARNESS_SRC="$HOME/harness"
+PROFILE="web"
+```
 
-# Plugin checkout: run npm commands here.
+Do not leave `PROFILE` as `<existing-profile>`. If your profile is not named
+`web`, replace `web` with its actual name.
+
+### Step 2: Confirm the Harness source directory
+
+This check can also be run from any directory. It must print the confirmation
+line without an error:
+
+```sh
+test -f "$HARNESS_SRC/package.json" && \
+test -f "$HARNESS_SRC/apps/cli/src/bin.ts" && \
+echo "Harness source checkout: $HARNESS_SRC"
+```
+
+If it fails, stop and set `HARNESS_SRC` to the directory that contains both
+`package.json` and `apps/cli/src/bin.ts`.
+
+### Step 3: Clone the plugin and enter the plugin directory
+
+Run these commands from any directory:
+
+```sh
+mkdir -p "$PLUGIN_ROOT"
+git clone https://github.com/zhaozhiyue1987/harness-gateway01.git \
+  "$PLUGIN_ROOT/harness-gateway01"
 cd "$PLUGIN_ROOT/harness-gateway01"
+pwd
+```
+
+The final `pwd` must print a path ending in `harness-gateway01`. All `npm`
+commands in the next step must be run in this directory.
+
+### Step 4: Build and test in the plugin directory
+
+Remain in `"$PLUGIN_ROOT/harness-gateway01"` and run each command in order:
+
+```sh
 npm ci
 npm run typecheck
 npm test
 npm run build
 npm pack
+```
 
-# Harness source checkout: run the Harness CLI here.
+Expected results are: typecheck and tests exit with code 0; build creates
+`dist/`; and `npm pack` creates
+`dsh-higress-ai-route-plugin-0.1.1.tgz` in the current plugin directory.
+
+Confirm the package exists before continuing:
+
+```sh
+ls -lh dsh-higress-ai-route-plugin-0.1.1.tgz
+```
+
+### Step 5: Switch to the Harness source directory
+
+This is the important directory change. The next command must not be run from
+the plugin directory:
+
+```sh
 cd "$HARNESS_SRC"
+pwd
+```
+
+The final `pwd` must print the Harness source checkout, not
+`harness-gateway01`.
+
+### Step 6: Install the tarball into the existing profile
+
+Remain in `"$HARNESS_SRC"` and run:
+
+```sh
 pnpm dsh plugin --profile "$PROFILE" add \
   "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"
+```
+
+This command installs the package into the selected profile. It does not create
+a profile and it does not configure Console credentials.
+
+### Step 7: Restart Harness Web and verify
+
+Restart the Harness Web process using the method used by your deployment. Then
+open Harness, go to **Settings → Plugins**, and confirm that **Higress AI
+routes** is loaded. Configure the Console endpoint and route credentials only
+after the bundle appears.
+
+If you prefer the one-command installer, run it from the plugin directory after
+Steps 1–3:
+
+```sh
+HARNESS_SRC="$HARNESS_SRC" PROFILE="$PROFILE" \
+  ./scripts/install-native-harness.sh
 ```
 
 The published artifact contains prebuilt JavaScript and the bundle patch, so an end user does not execute a TypeScript build during installation.

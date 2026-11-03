@@ -2,14 +2,35 @@
 
 本文适用于 `dsh-higress-ai-route-plugin` 0.1.x，在任意具备原生 Harness 源码 checkout 的目标环境中安装、配置和验证 Higress AI 网关路由。
 
+## 先确认两个目录
+
+本手册会在两个不同目录中执行命令：
+
+- **插件目录**：从本仓库 clone 得到的 `harness-gateway01` 目录。`npm ci`、`npm run typecheck`、`npm run build`、`npm test` 和 `npm pack` 都在这里执行。目录中应有 `package.json`、`scripts/` 和 `src/`。
+- **Harness 源码目录**：Harness 主仓库 checkout 的根目录。`pnpm dsh plugin ... add` 在这里执行。目录中应有 `package.json`、`apps/cli/src/bin.ts` 和 `apps/`。
+
+两个目录应当并列，例如：
+
+```text
+/Users/你的用户名/
+├── harness-plugins/harness-gateway01/  ← 插件目录
+└── harness/                           ← Harness 源码目录
+```
+
+`PROFILE` 是已有 Harness profile 的名称（例如 `web`），不是目录路径。
+
 ## 0. 从 GitHub 克隆并一键安装
 
-以下流程不依赖特定主机、端口或 profile 名称。请把 `PLUGIN_ROOT`、`HARNESS_SRC` 和 `PROFILE` 改为目标环境的实际值；`PROFILE` 必须已经存在。
+以下流程不依赖特定主机、端口或 profile 名称。终端可以从任意目录开始，但请按顺序执行每条命令。请把 `PLUGIN_ROOT`、`HARNESS_SRC` 和 `PROFILE` 改为目标环境的实际值；`PROFILE` 必须已经存在。
 
 ```bash
-PLUGIN_ROOT="/opt/harness-plugins"
-HARNESS_SRC="/opt/harness"
+PLUGIN_ROOT="$HOME/harness-plugins"
+HARNESS_SRC="$HOME/harness"
 PROFILE="<existing-profile>"
+
+test -f "$HARNESS_SRC/package.json" && \
+test -f "$HARNESS_SRC/apps/cli/src/bin.ts" && \
+echo "Harness 源码目录正确：$HARNESS_SRC"
 
 mkdir -p "$PLUGIN_ROOT"
 git clone https://github.com/zhaozhiyue1987/harness-gateway01.git \
@@ -20,6 +41,8 @@ HARNESS_SRC="$HARNESS_SRC" PROFILE="$PROFILE" \
 ```
 
 脚本会在插件仓库内执行锁定依赖安装、类型检查、构建、测试和临时打包，再通过 Harness 源码 checkout 的原生 CLI 安装到指定 profile。安装后重启该 profile 对应的 Harness Web 进程。脚本不创建 profile，也不读取或保存 Console、路由或模型密钥。
+
+如果不使用一键脚本，请按第 4 节和第 5 节逐步执行。第 4 节的 `npm` 命令只能在插件目录执行；第 5 节的 `pnpm dsh` 命令只能在 Harness 源码目录执行。
 
 ## 1. 部署架构
 
@@ -89,13 +112,16 @@ https://gateway.example.com
 
 ## 4. 构建插件安装包
 
-以下命令块可从任意目录开始；进入 `"$PLUGIN_ROOT/harness-gateway01"` 后，`npm` 命令均在插件 clone 目录执行。
+以下命令块可从任意目录开始。先执行 `cd`，再执行后续命令；不要在 Harness 源码目录执行 `npm ci`。
 
 进入已克隆的插件仓库：
 
 ```sh
 cd "$PLUGIN_ROOT/harness-gateway01"
+pwd
 ```
+
+`pwd` 必须显示以 `harness-gateway01` 结尾的路径。保持在这个目录执行：
 
 安装依赖并执行检查：
 
@@ -123,12 +149,18 @@ tar -tzf dsh-higress-ai-route-plugin-0.1.1.tgz | sed -n '1,80p'
 
 ## 5. 安装到 Harness profile
 
-安装命令必须在 Harness 源码 checkout 目录执行，而不是在插件目录执行。
+安装命令必须在 Harness 源码 checkout 目录执行，而不是在插件目录执行。先切换目录并确认：
 
 将 `<profile-name>` 替换为实际使用的 Harness profile：
 
 ```sh
 cd "$HARNESS_SRC"
+pwd
+```
+
+`pwd` 必须显示 Harness 源码目录，然后再执行安装：
+
+```sh
 pnpm dsh plugin --profile "$PROFILE" add \
   "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"
 ```
