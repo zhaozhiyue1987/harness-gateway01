@@ -89,6 +89,8 @@ https://gateway.example.com
 
 ## 4. 构建插件安装包
 
+以下命令块可从任意目录开始；进入 `"$PLUGIN_ROOT/harness-gateway01"` 后，`npm` 命令均在插件 clone 目录执行。
+
 进入已克隆的插件仓库：
 
 ```sh
@@ -120,6 +122,8 @@ tar -tzf dsh-higress-ai-route-plugin-0.1.1.tgz | sed -n '1,80p'
 安装包应至少包含 `dist/`、`cordis.patch.yml`、`package.json` 和 README 文件。
 
 ## 5. 安装到 Harness profile
+
+安装命令必须在 Harness 源码 checkout 目录执行，而不是在插件目录执行。
 
 将 `<profile-name>` 替换为实际使用的 Harness profile：
 

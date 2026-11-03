@@ -66,18 +66,22 @@ pnpm -s --dir "$HARNESS_SRC" dsh plugin --profile "$PROFILE" add <generated-tarb
 
 ## 手工构建和安装
 
-如需拆分执行，npm 命令只在插件目录运行，`pnpm dsh` 命令在 Harness 源码目录运行：
+以下代码块可从任意目录开始。执行 `cd "$PLUGIN_ROOT/harness-gateway01"` 后，所有 `npm` 命令都在插件 clone 目录执行；执行 `cd "$HARNESS_SRC"` 后，`pnpm dsh` 命令必须在 Harness 源码目录执行：
 
 ```bash
 PLUGIN_ROOT="/opt/harness-plugins"
 HARNESS_SRC="/opt/harness"
 PROFILE="<existing-profile>"
+
+# 插件 clone 目录：在这里执行 npm 命令
 cd "$PLUGIN_ROOT/harness-gateway01"
 npm ci
 npm run typecheck
 npm run build
 npm test
 npm pack
+
+# Harness 源码目录：在这里执行 Harness CLI
 cd "$HARNESS_SRC"
 pnpm dsh plugin --profile "$PROFILE" add \
   "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"

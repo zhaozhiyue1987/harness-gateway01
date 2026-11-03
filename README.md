@@ -61,17 +61,22 @@ changes as well and the UI asks for the existing key again.
 
 ## Build and install manually
 
+You may start this block from any shell directory. After `cd "$PLUGIN_ROOT/harness-gateway01"`, run all `npm` commands in the cloned plugin directory. After `cd "$HARNESS_SRC"`, run the `pnpm dsh` command in the Harness source checkout.
+
 ```sh
 PLUGIN_ROOT="/opt/harness-plugins"
 HARNESS_SRC="/opt/harness"
 PROFILE="<existing-profile>"
 
+# Plugin checkout: run npm commands here.
 cd "$PLUGIN_ROOT/harness-gateway01"
 npm ci
 npm run typecheck
 npm test
 npm run build
 npm pack
+
+# Harness source checkout: run the Harness CLI here.
 cd "$HARNESS_SRC"
 pnpm dsh plugin --profile "$PROFILE" add \
   "file:$PLUGIN_ROOT/harness-gateway01/dsh-higress-ai-route-plugin-0.1.1.tgz"
