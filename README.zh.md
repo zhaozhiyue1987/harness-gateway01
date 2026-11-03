@@ -57,6 +57,41 @@ echo "这是 Harness 源码目录：$HARNESS_SRC"
 
 只有打印出确认信息，`HARNESS_SRC` 才填写正确。
 
+### Windows WSL2 环境补充
+
+WSL2 中的构建和安装顺序与 macOS 相同，但以下配置不同：命令必须在 WSL 的 Ubuntu 终端执行，不能在 PowerShell 中执行；仓库建议放在 WSL 的 Linux 文件系统（例如 `$HOME`）中，不要放在 `/mnt/c` 下，以免 `node_modules` 出现权限、软链接或性能问题。
+
+先在 WSL 终端检查环境：
+
+```bash
+uname -srm
+node --version
+npm --version
+command -v pnpm || command -v corepack
+```
+
+Node.js 必须满足 `>=22.19.0`。如果 `pnpm` 不存在但有 `corepack`，执行：
+
+```bash
+corepack enable
+pnpm --version
+```
+
+在 WSL 中使用 Linux 路径重新设置目录，并确保 Harness 源码依赖已安装：
+
+```bash
+export PLUGIN_ROOT="$HOME/harness-plugins"
+export HARNESS_SRC="$HOME/harness"
+export PROFILE="web"
+
+cd "$HARNESS_SRC"
+pnpm install --frozen-lockfile
+test -f package.json && test -f apps/cli/src/bin.ts && \
+  echo "Harness 源码目录正确：$HARNESS_SRC"
+```
+
+之后仍按本文手工步骤执行：先 `cd "$PLUGIN_ROOT/harness-gateway01"` 执行全部 `npm` 命令，再 `cd "$HARNESS_SRC"` 执行 `pnpm dsh plugin ... add`。WSL 通常没有可用的 systemd；一键脚本会跳过自动重启，此时请在 WSL 中按原来的启动方式手动重启 Harness Web，并使用 Windows 浏览器访问实际监听端口。
+
 ## 用户流程
 
 1. 使用 `dsh plugin --profile <name> add <package-or-tarball>` 安装。
@@ -121,6 +156,30 @@ echo "Harness 源码目录正确：$HARNESS_SRC"
 ```
 
 如果失败，请把 `HARNESS_SRC` 改成同时包含 `package.json` 和 `apps/cli/src/bin.ts` 的目录后重试。
+
+如果后面执行 `cd "$HARNESS_SRC"` 提示 `no such file or directory`，说明变量仍是示例路径或旧路径。`cd` 失败后 Shell 不会切换目录，所以此时再执行 `pwd` 仍显示插件目录是正常现象；不要在这个目录继续执行 `pnpm dsh`。请先查找 Harness 源码入口：
+
+```bash
+find "$HOME" -path "*/apps/cli/src/bin.ts" -print 2>/dev/null
+```
+
+假设命令输出：
+
+```text
+/Users/你的用户名/项目开发/harness/apps/cli/src/bin.ts
+```
+
+则把 `apps/cli/src/bin.ts` 前面的目录设置为 `HARNESS_SRC`，再重新确认：
+
+```bash
+export HARNESS_SRC="$HOME/项目开发/harness"
+cd "$HARNESS_SRC"
+pwd
+test -f package.json && test -f apps/cli/src/bin.ts && \
+  echo "Harness 源码目录正确：$HARNESS_SRC"
+```
+
+只有确认 `pwd` 显示 Harness 源码根目录后，才执行后面的 `pnpm dsh plugin ... add`。
 
 ### 第 3 步：克隆插件并进入插件目录
 
